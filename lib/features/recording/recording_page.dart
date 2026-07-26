@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/camera_service.dart';
+import '../../core/services/collection_service.dart';
 import '../../core/services/recording_service.dart';
 
 class RecordingPage extends StatefulWidget {
@@ -13,6 +14,7 @@ class RecordingPage extends StatefulWidget {
 
 class _RecordingPageState extends State<RecordingPage> {
   final CameraService _cameraService = CameraService();
+  final CollectionService _collectionService = CollectionService();
 
   RecordingService? _recordingService;
 
@@ -29,9 +31,11 @@ class _RecordingPageState extends State<RecordingPage> {
 
     _recordingService = RecordingService(_cameraService);
 
-    setState(() {
-      _loading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -44,12 +48,23 @@ class _RecordingPageState extends State<RecordingPage> {
     if (_recordingService == null) return;
 
     if (!_recordingService!.isRecording) {
+      // Create a new session folder
+      final folder = await _collectionService.createSession();
+
+      debugPrint("====================================");
+      debugPrint("Session Folder Created:");
+      debugPrint(folder.path);
+      debugPrint("====================================");
+
+      // Start recording
       await _recordingService!.startRecording();
 
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     } else {
-      final XFile? file =
-          await _recordingService!.stopRecording();
+      // Stop recording
+      final XFile? file = await _recordingService!.stopRecording();
 
       if (mounted) {
         setState(() {});
@@ -58,7 +73,9 @@ class _RecordingPageState extends State<RecordingPage> {
       if (file != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Saved:\n${file.path}"),
+            content: Text(
+              "Video saved:\n${file.path}",
+            ),
           ),
         );
       }
@@ -81,13 +98,11 @@ class _RecordingPageState extends State<RecordingPage> {
       ),
       body: Column(
         children: [
-
           Expanded(
             child: CameraPreview(
               _cameraService.controller!,
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(24),
             child: SizedBox(
