@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -21,6 +22,66 @@ class _RecordingPageState extends State<RecordingPage> {
   final GpsService _gpsService = GpsService();
 
   bool _loading = true;
+
+  Timer? _timer;
+  Duration _elapsed = Duration.zero;
+
+  String get formattedTime {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+
+    final minutes = twoDigits(_elapsed.inMinutes.remainder(60));
+    final seconds = twoDigits(_elapsed.inSeconds.remainder(60));
+
+    return "$minutes:$seconds";
+  }
+
+  void _startTimer() {
+    _elapsed = Duration.zero;
+
+    _timer?.cancel();
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (!mounted) return;
+
+        setState(() {
+          _elapsed += const Duration(seconds: 1);
+        });
+      },
+    );
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+  }
+
+  Widget _buildStatusTile({
+    required IconData icon,
+    required String title,
+    required bool active,
+  }) {
+    return Card(
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.circle,
+              size: 12,
+              color: active ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              active ? "Active" : "Inactive",
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -63,6 +124,8 @@ class _RecordingPageState extends State<RecordingPage> {
         final File? video =
             await _collectionService.stopRecordingSession();
 
+        _stopTimer();
+
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,6 +139,8 @@ class _RecordingPageState extends State<RecordingPage> {
         );
       } else {
         await _collectionService.startRecordingSession();
+
+        _startTimer();
 
         if (!mounted) return;
 
@@ -105,6 +170,7 @@ class _RecordingPageState extends State<RecordingPage> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     _cameraService.dispose();
     super.dispose();
   }
@@ -130,6 +196,60 @@ class _RecordingPageState extends State<RecordingPage> {
               _cameraService.controller!,
             ),
           ),
+
+          if (_collectionService.isRecording) ...[
+            const SizedBox(height: 12),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.fiber_manual_record,
+                  color: Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Recording",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              formattedTime,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+          ],
+
+          Column(
+            children: [
+              _buildStatusTile(
+                icon: Icons.location_on,
+                title: "GPS",
+                active: _collectionService.gpsConnected,
+              ),
+
+              _buildStatusTile(
+                icon: Icons.sensors,
+                title: "IMU",
+                active: _collectionService.imuActive,
+              ),
+
+              _buildStatusTile(
+                icon: Icons.videocam,
+                title: "Camera",
+                active: _collectionService.isRecording,
+              ),
+            ],
+          ),
+
           Padding(
             padding: const EdgeInsets.all(24),
             child: SizedBox(

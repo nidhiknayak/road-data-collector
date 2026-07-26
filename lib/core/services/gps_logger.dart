@@ -10,6 +10,10 @@ class GpsLogger {
   IOSink? _sink;
   StreamSubscription<Position>? _subscription;
 
+  bool _hasFix = false;
+
+  bool get hasFix => _hasFix;
+
   Future<void> start(
     Stream<Position> stream,
     File file,
@@ -30,6 +34,8 @@ class GpsLogger {
 
     _subscription = stream.listen(
       (Position position) async {
+        _hasFix = true;
+
         debugPrint(
           "GPS: ${position.latitude}, ${position.longitude}",
         );
@@ -61,5 +67,6 @@ class GpsLogger {
 
     _subscription = null;
     _sink = null;
+    _hasFix = false;
   }
 }

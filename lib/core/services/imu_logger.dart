@@ -17,12 +17,18 @@ class ImuLogger {
   double _gx = 0, _gy = 0, _gz = 0;
   double _mx = 0, _my = 0, _mz = 0;
 
+  bool _active = false;
+
+  bool get isActive => _active;
+
   Future<void> start(
     ImuService imuService,
     File file,
     SessionClock clock,
   ) async {
     if (_sink != null) return;
+
+    _active = true;
 
     debugPrint("Opening IMU file: ${file.path}");
 
@@ -72,5 +78,7 @@ class ImuLogger {
     _gyroscopeSub = null;
     _magnetometerSub = null;
     _sink = null;
+
+    _active = false;
   }
 }

@@ -26,6 +26,8 @@ class CollectionService {
 
   final SessionClock _clock = SessionClock();
 
+  bool get gpsConnected => _gpsLogger.hasFix;
+
   Directory? _sessionDirectory;
 
   DateTime? _sessionStartTime;
@@ -49,6 +51,7 @@ class CollectionService {
   bool get hasActiveSession => _sessionDirectory != null;
 
   bool get isRecording => _recordingService.isRecording;
+  bool get imuActive => _imuLogger.isActive;
 
   SessionClock get clock => _clock;
 
