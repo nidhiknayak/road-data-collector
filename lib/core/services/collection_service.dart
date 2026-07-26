@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'camera_service.dart';
 import 'gps_logger.dart';
 import 'gps_service.dart';
+import 'imu_logger.dart';
+import 'imu_service.dart';
 import 'recording_service.dart';
 
 class CollectionService {
@@ -16,6 +18,9 @@ class CollectionService {
 
   final GpsService _gpsService;
   final GpsLogger _gpsLogger = GpsLogger();
+
+  final ImuService _imuService = ImuService();
+  final ImuLogger _imuLogger = ImuLogger();
 
   Directory? _sessionDirectory;
 
@@ -74,19 +79,30 @@ class CollectionService {
     await startSession();
 
     final gpsFile = getGpsFile();
+    final imuFile = getImuFile();
 
+    // Start GPS logging.
     await _gpsLogger.start(
       _gpsService.getPositionStream(),
       gpsFile,
     );
 
+    // Start IMU logging.
+    await _imuLogger.start(
+      _imuService,
+      imuFile,
+    );
+
+    // Start video recording.
     await _recordingService.startRecording();
   }
 
   Future<File?> stopRecordingSession() async {
     final XFile? video = await _recordingService.stopRecording();
 
+    // Stop sensor logging.
     await _gpsLogger.stop();
+    await _imuLogger.stop();
 
     File? savedVideo;
 
@@ -119,6 +135,15 @@ class CollectionService {
       path.join(
         sessionDirectory.path,
         "gps.csv",
+      ),
+    );
+  }
+
+  File getImuFile() {
+    return File(
+      path.join(
+        sessionDirectory.path,
+        "imu.csv",
       ),
     );
   }
