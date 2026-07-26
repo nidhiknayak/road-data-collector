@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'session_clock.dart';
+
 class GpsLogger {
   IOSink? _sink;
   StreamSubscription<Position>? _subscription;
@@ -11,6 +13,7 @@ class GpsLogger {
   Future<void> start(
     Stream<Position> stream,
     File file,
+    SessionClock clock,
   ) async {
     // Prevent starting twice.
     if (_subscription != null) return;
@@ -20,7 +23,7 @@ class GpsLogger {
     _sink = file.openWrite();
 
     _sink!.writeln(
-      "timestamp,latitude,longitude,altitude,speed,speed_accuracy,heading,accuracy",
+      "elapsed_ms,latitude,longitude,altitude,speed,speed_accuracy,heading,accuracy",
     );
 
     await _sink!.flush();
@@ -32,7 +35,7 @@ class GpsLogger {
         );
 
         _sink!.writeln(
-          "${position.timestamp?.toIso8601String() ?? DateTime.now().toIso8601String()},"
+          "${clock.elapsedMilliseconds},"
           "${position.latitude},"
           "${position.longitude},"
           "${position.altitude},"

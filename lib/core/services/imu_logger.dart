@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import 'imu_service.dart';
+import 'session_clock.dart';
 
 class ImuLogger {
   IOSink? _sink;
@@ -19,6 +20,7 @@ class ImuLogger {
   Future<void> start(
     ImuService imuService,
     File file,
+    SessionClock clock,
   ) async {
     if (_sink != null) return;
 
@@ -27,8 +29,10 @@ class ImuLogger {
     _sink = file.openWrite();
 
     _sink!.writeln(
-      "timestamp,ax,ay,az,gx,gy,gz,mx,my,mz",
+      "elapsed_ms,ax,ay,az,gx,gy,gz,mx,my,mz",
     );
+
+    await _sink!.flush();
 
     _gyroscopeSub = imuService.gyroscope.listen((event) {
       _gx = event.x;
@@ -42,15 +46,17 @@ class ImuLogger {
       _mz = event.z;
     });
 
-    _accelerometerSub = imuService.accelerometer.listen((event) {
+    _accelerometerSub = imuService.accelerometer.listen((event) async {
       _sink!.writeln(
-        "${DateTime.now().toIso8601String()},"
+        "${clock.elapsedMilliseconds},"
         "${event.x},"
         "${event.y},"
         "${event.z},"
         "$_gx,$_gy,$_gz,"
         "$_mx,$_my,$_mz",
       );
+
+      await _sink!.flush();
     });
   }
 
