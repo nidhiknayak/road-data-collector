@@ -27,6 +27,8 @@ class GpsService {
   }
 
   Stream<Position> getPositionStream() {
+    print("GPS stream requested");
+
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.best,

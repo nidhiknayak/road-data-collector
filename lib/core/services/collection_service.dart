@@ -1,13 +1,49 @@
 import 'dart:io';
 
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
-class CollectionService {
-  Directory? sessionDirectory;
+import 'camera_service.dart';
+import 'gps_logger.dart';
+import 'gps_service.dart';
+import 'recording_service.dart';
 
-  Future<Directory> createSession() async {
+class CollectionService {
+  late final CameraService _cameraService;
+  late final RecordingService _recordingService;
+
+  final GpsService _gpsService;
+  final GpsLogger _gpsLogger = GpsLogger();
+
+  Directory? _sessionDirectory;
+
+  CollectionService({
+    required CameraService cameraService,
+    required GpsService gpsService,
+  }) : _gpsService = gpsService {
+    _cameraService = cameraService;
+    _recordingService = RecordingService(cameraService);
+  }
+
+  Directory get sessionDirectory {
+    if (_sessionDirectory == null) {
+      throw Exception("No active session.");
+    }
+    return _sessionDirectory!;
+  }
+
+  bool get hasActiveSession => _sessionDirectory != null;
+
+  bool get isRecording => _recordingService.isRecording;
+
+  Future<Directory> startSession() async {
     final appDir = await getExternalStorageDirectory();
+
+    if (appDir == null) {
+      throw Exception("External storage directory is not available.");
+    }
 
     final now = DateTime.now();
 
@@ -19,16 +55,89 @@ class CollectionService {
         "${now.minute.toString().padLeft(2, '0')}"
         "${now.second.toString().padLeft(2, '0')}";
 
-    final folder = Directory(
-      path.join(appDir!.path, sessionName),
+    _sessionDirectory = Directory(
+      path.join(appDir.path, sessionName),
     );
 
-    if (!await folder.exists()) {
-      await folder.create(recursive: true);
+    if (!await _sessionDirectory!.exists()) {
+      await _sessionDirectory!.create(recursive: true);
     }
 
-    sessionDirectory = folder;
+    return _sessionDirectory!;
+  }
 
-    return folder;
+  Future<void> endSession() async {
+    _sessionDirectory = null;
+  }
+
+  Future<void> startRecordingSession() async {
+    await startSession();
+
+    final gpsFile = getGpsFile();
+
+    await _gpsLogger.start(
+      _gpsService.getPositionStream(),
+      gpsFile,
+    );
+
+    await _recordingService.startRecording();
+  }
+
+  Future<File?> stopRecordingSession() async {
+    final XFile? video = await _recordingService.stopRecording();
+
+    await _gpsLogger.stop();
+
+    File? savedVideo;
+
+    if (video != null) {
+      debugPrint("Camera returned: ${video.path}");
+
+      final destination = getVideoFile();
+
+      debugPrint("Copying to: ${destination.path}");
+
+      try {
+        savedVideo = await File(video.path).copy(destination.path);
+
+        debugPrint("Video copied successfully.");
+      } catch (e, stackTrace) {
+        debugPrint("VIDEO COPY ERROR: $e");
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    } else {
+      debugPrint("Camera returned null video.");
+    }
+
+    await endSession();
+
+    return savedVideo;
+  }
+
+  File getGpsFile() {
+    return File(
+      path.join(
+        sessionDirectory.path,
+        "gps.csv",
+      ),
+    );
+  }
+
+  File getVideoFile() {
+    return File(
+      path.join(
+        sessionDirectory.path,
+        "video.mp4",
+      ),
+    );
+  }
+
+  File getMetadataFile() {
+    return File(
+      path.join(
+        sessionDirectory.path,
+        "metadata.json",
+      ),
+    );
   }
 }

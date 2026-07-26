@@ -3,26 +3,29 @@ import 'package:camera/camera.dart';
 import 'camera_service.dart';
 
 class RecordingService {
-  final CameraService cameraService;
+  final CameraService _cameraService;
 
-  bool isRecording = false;
+  bool _isRecording = false;
 
-  RecordingService(this.cameraService);
+  RecordingService(this._cameraService);
+
+  bool get isRecording => _isRecording;
 
   Future<void> startRecording() async {
-    if (isRecording) return;
+    if (_isRecording) return;
 
-    await cameraService.controller?.startVideoRecording();
+    await _cameraService.controller!.startVideoRecording();
 
-    isRecording = true;
+    _isRecording = true;
   }
 
   Future<XFile?> stopRecording() async {
-    if (!isRecording) return null;
+    if (!_isRecording) return null;
 
-    final file = await cameraService.controller?.stopVideoRecording();
+    final XFile file =
+        await _cameraService.controller!.stopVideoRecording();
 
-    isRecording = false;
+    _isRecording = false;
 
     return file;
   }
