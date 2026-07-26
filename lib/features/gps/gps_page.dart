@@ -3,60 +3,83 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/services/gps_service.dart';
 
-class GpsPage extends StatelessWidget {
+class GpsPage extends StatefulWidget {
   const GpsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final gps = GpsService();
+  State<GpsPage> createState() => _GpsPageState();
+}
 
+class _GpsPageState extends State<GpsPage> {
+  final GpsService _gpsService = GpsService();
+  late Future<void> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = _gpsService.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("GPS"),
-      ),
-      body: StreamBuilder<Position>(
-        stream: gps.getPositionStream(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(),
+      appBar: AppBar(title: const Text("GPS")),
+      body: FutureBuilder<void>(
+        future: _initialization,
+        builder: (context, initSnapshot) {
+          if (initSnapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (initSnapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  initSnapshot.error.toString(),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             );
           }
 
-          final p = snapshot.data!;
+          return StreamBuilder<Position>(
+            stream: _gpsService.getPositionStream(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+              final p = snapshot.data!;
 
-              ListTile(
-                title: const Text("Latitude"),
-                subtitle: Text("${p.latitude}"),
-              ),
-
-              ListTile(
-                title: const Text("Longitude"),
-                subtitle: Text("${p.longitude}"),
-              ),
-
-              ListTile(
-                title: const Text("Speed"),
-                subtitle: Text("${p.speed} m/s"),
-              ),
-
-              ListTile(
-                title: const Text("Accuracy"),
-                subtitle: Text("${p.accuracy} m"),
-              ),
-
-              ListTile(
-                title: const Text("Timestamp"),
-                subtitle: Text(
-                  p.timestamp?.toString() ?? "Unavailable",
-                ),
-              ),
-
-            ],
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  ListTile(
+                    title: const Text("Latitude"),
+                    subtitle: Text("${p.latitude}"),
+                  ),
+                  ListTile(
+                    title: const Text("Longitude"),
+                    subtitle: Text("${p.longitude}"),
+                  ),
+                  ListTile(
+                    title: const Text("Speed"),
+                    subtitle: Text("${p.speed} m/s"),
+                  ),
+                  ListTile(
+                    title: const Text("Accuracy"),
+                    subtitle: Text("${p.accuracy} m"),
+                  ),
+                  ListTile(
+                    title: const Text("Timestamp"),
+                    subtitle: Text(
+                      p.timestamp?.toString() ?? "Unavailable",
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
