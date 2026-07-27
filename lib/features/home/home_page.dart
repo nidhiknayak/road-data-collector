@@ -4,6 +4,7 @@ import '../camera/camera_page.dart';
 import '../gps/gps_page.dart';
 import '../recording/recording_page.dart';
 import '../sensors/sensors_page.dart';
+import '../sessions/sessions_page.dart';
 import '../settings/settings_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -38,18 +39,88 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Road Data Collector"),
       ),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            tile(context, Icons.camera_alt, "Camera", const CameraPage()),
-            tile(context, Icons.location_on, "GPS", const GpsPage()),
-            tile(context, Icons.sensors, "Sensors", const SensorsPage()),
-            tile(context, Icons.fiber_manual_record,
-                "Start Recording", const RecordingPage()),
-            tile(context, Icons.settings, "Settings", const SettingsPage()),
-          ],
-        ),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.fiber_manual_record,
+                color: Colors.red,
+              ),
+              title: const Text("Start Recording"),
+              subtitle: const Text(
+                "Collect synchronized video, GPS and IMU data",
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => open(
+                context,
+                const RecordingPage(),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.folder),
+              title: const Text("Recorded Sessions"),
+              subtitle: const Text(
+                "Browse previous recordings",
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => open(
+                context,
+                const SessionsPage(),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text("Settings"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => open(
+                context,
+                const SettingsPage(),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          Text(
+            "Developer Tools",
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+
+          const SizedBox(height: 8),
+
+          tile(
+            context,
+            Icons.camera_alt,
+            "Camera Test",
+            const CameraPage(),
+          ),
+
+          tile(
+            context,
+            Icons.location_on,
+            "GPS Test",
+            const GpsPage(),
+          ),
+
+          tile(
+            context,
+            Icons.sensors,
+            "Sensor Test",
+            const SensorsPage(),
+          ),
+        ],
       ),
     );
   }
