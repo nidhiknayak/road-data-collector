@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/camera_service.dart';
 import '../../core/services/collection_service.dart';
 import '../../core/services/gps_service.dart';
+import '../../core/services/settings_service.dart';
 
 class RecordingPage extends StatefulWidget {
   const RecordingPage({super.key});
@@ -20,6 +21,10 @@ class _RecordingPageState extends State<RecordingPage> {
   late final CollectionService _collectionService;
 
   final GpsService _gpsService = GpsService();
+
+  final SettingsService _settingsService = SettingsService();
+
+  bool _cameraEnabled = true;
 
   bool _loading = true;
 
@@ -91,7 +96,12 @@ class _RecordingPageState extends State<RecordingPage> {
 
   Future<void> _initializeCamera() async {
     try {
-      await _cameraService.initialize();
+      _cameraEnabled = await _settingsService.isCameraEnabled();
+
+      if (_cameraEnabled) {
+        await _cameraService.initialize();
+      }
+
       await _gpsService.initialize();
 
       _collectionService = CollectionService(
@@ -171,7 +181,11 @@ class _RecordingPageState extends State<RecordingPage> {
   @override
   void dispose() {
     _timer?.cancel();
-    _cameraService.dispose();
+
+    if (_cameraEnabled) {
+      _cameraService.dispose();
+    }
+
     super.dispose();
   }
 
@@ -192,9 +206,38 @@ class _RecordingPageState extends State<RecordingPage> {
       body: Column(
         children: [
           Expanded(
-            child: CameraPreview(
-              _cameraService.controller!,
-            ),
+            child: _cameraEnabled
+                ? CameraPreview(
+                    _cameraService.controller!,
+                  )
+                : Container(
+                    color: Colors.black12,
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.videocam_off,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            "Camera Recording Disabled",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            "GPS and IMU data will still be recorded.",
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
 
           if (_collectionService.isRecording) ...[

@@ -24,6 +24,7 @@ dependencies:
   share_plus: ^11.0.0
   video_player: ^2.10.0
   chewie: ^1.12.1
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

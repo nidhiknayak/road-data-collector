@@ -13,6 +13,7 @@ import 'imu_logger.dart';
 import 'imu_service.dart';
 import 'recording_service.dart';
 import 'session_clock.dart';
+import 'settings_service.dart';
 
 class CollectionService {
   late final CameraService _cameraService;
@@ -23,6 +24,8 @@ class CollectionService {
 
   final ImuService _imuService = ImuService();
   final ImuLogger _imuLogger = ImuLogger();
+
+  final SettingsService _settingsService = SettingsService();
 
   final SessionClock _clock = SessionClock();
 
@@ -35,8 +38,8 @@ class CollectionService {
 
   CollectionService({
     required CameraService cameraService,
-    required GpsService gpsService,
-  }) : _gpsService = gpsService {
+    required this._gpsService,
+  }) {
     _cameraService = cameraService;
     _recordingService = RecordingService(cameraService);
   }
@@ -115,12 +118,24 @@ class CollectionService {
       _clock,
     );
 
-    // Start video recording.
-    await _recordingService.startRecording();
+    // Start video recording (only if camera is enabled in settings).
+    final cameraEnabled =
+        await _settingsService.isCameraEnabled();
+
+    if (cameraEnabled) {
+      await _recordingService.startRecording();
+    }
   }
 
   Future<File?> stopRecordingSession() async {
-    final XFile? video = await _recordingService.stopRecording();
+    XFile? video;
+
+    final cameraEnabled =
+        await _settingsService.isCameraEnabled();
+
+    if (cameraEnabled) {
+      video = await _recordingService.stopRecording();
+    }
 
     _sessionEndTime = DateTime.now();
 
