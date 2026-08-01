@@ -25,6 +25,8 @@ dependencies:
   video_player: ^2.10.0
   chewie: ^1.12.1
   shared_preferences: ^2.5.3
+  flutter_map: ^8.2.1
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:

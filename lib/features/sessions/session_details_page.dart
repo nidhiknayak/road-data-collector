@@ -1,20 +1,55 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'session_model.dart';
 import 'video_player_page.dart';
 
 import '../../core/services/export_service.dart';
+import '../../core/services/gps_route_service.dart';
 import '../../core/services/session_delete_service.dart';
+import 'route_map_widget.dart';
 
-class SessionDetailsPage extends StatelessWidget {
+class SessionDetailsPage extends StatefulWidget {
   final SessionModel session;
 
   const SessionDetailsPage({
     super.key,
     required this.session,
   });
+
+  @override
+  State<SessionDetailsPage> createState() =>
+      _SessionDetailsPageState();
+}
+
+class _SessionDetailsPageState
+    extends State<SessionDetailsPage> {
+  final GpsRouteService _routeService =
+      GpsRouteService();
+
+  List<LatLng> _route = [];
+
+  bool _loadingRoute = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoute();
+  }
+
+  Future<void> _loadRoute() async {
+    _route = await _routeService.loadRoute(
+      widget.session.gpsPath,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _loadingRoute = false;
+    });
+  }
 
   Widget fileTile(
     IconData icon,
@@ -43,7 +78,7 @@ class SessionDetailsPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            session.id,
+            widget.session.id,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
 
@@ -55,7 +90,7 @@ class SessionDetailsPage extends StatelessWidget {
           ),
 
           Text(
-            session.startTime?.toString() ?? "-",
+            widget.session.startTime?.toString() ?? "-",
           ),
 
           const SizedBox(height: 16),
@@ -65,33 +100,52 @@ class SessionDetailsPage extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
 
-          Text(session.duration.toString()),
+          Text(widget.session.duration.toString()),
 
           const Divider(height: 32),
 
           fileTile(
             Icons.videocam,
             "video.mp4",
-            session.videoPath,
+            widget.session.videoPath,
           ),
 
           fileTile(
             Icons.location_on,
             "gps.csv",
-            session.gpsPath,
+            widget.session.gpsPath,
           ),
 
           fileTile(
             Icons.sensors,
             "imu.csv",
-            session.imuPath,
+            widget.session.imuPath,
           ),
 
           fileTile(
             Icons.description,
             "metadata.json",
-            session.metadataPath,
+            widget.session.metadataPath,
           ),
+
+          const SizedBox(height: 24),
+
+          Text(
+            "Route",
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+
+          const SizedBox(height: 12),
+
+          _loadingRoute
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : RouteMapWidget(
+                  route: _route,
+                ),
+
+          const SizedBox(height: 24),
 
           const Divider(height: 32),
 
@@ -101,7 +155,7 @@ class SessionDetailsPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => VideoPlayerPage(
-                    videoPath: session.videoPath,
+                    videoPath: widget.session.videoPath,
                   ),
                 ),
               );
@@ -125,7 +179,7 @@ class SessionDetailsPage extends StatelessWidget {
               );
 
               try {
-                await exporter.shareSession(session);
+                await exporter.shareSession(widget.session);
               } finally {
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading dialog
@@ -167,7 +221,7 @@ class SessionDetailsPage extends StatelessWidget {
 
               final service = SessionDeleteService();
 
-              await service.delete(session);
+              await service.delete(widget.session);
 
               if (!context.mounted) return;
 
