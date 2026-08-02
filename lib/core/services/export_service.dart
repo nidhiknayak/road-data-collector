@@ -8,7 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../features/sessions/session_model.dart';
 
 class ExportService {
-  Future<File> createZip(SessionModel session) async {
+  Future<File> createZip(
+    SessionModel session, {
+    Directory? outputDirectory,
+  }) async {
     final archive = Archive();
 
     final sessionDirectory =
@@ -33,9 +36,8 @@ class ExportService {
 
     final bytes = ZipEncoder().encode(archive);
 
-    
-
-    final tempDir = await getTemporaryDirectory();
+    final tempDir =
+        outputDirectory ?? await getTemporaryDirectory();
 
     final zipFile = File(
       p.join(tempDir.path, "${session.id}.zip"),

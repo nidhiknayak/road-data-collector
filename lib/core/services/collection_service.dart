@@ -16,7 +16,7 @@ import 'session_clock.dart';
 import 'settings_service.dart';
 
 class CollectionService {
-  
+
   late final RecordingService _recordingService;
 
   final GpsService _gpsService;
@@ -47,7 +47,7 @@ class CollectionService {
     required CameraService cameraService,
     required this._gpsService,
   }) {
-    
+
     _recordingService = RecordingService(cameraService);
   }
 
@@ -72,6 +72,17 @@ class CollectionService {
 
   SessionClock get clock => _clock;
 
+  /// Builds the session folder name from a given timestamp. Pulled out as
+  /// its own method so it can be tested without touching the file system.
+  String generateSessionName(DateTime now) {
+    return "Session_${now.year}"
+        "${now.month.toString().padLeft(2, '0')}"
+        "${now.day.toString().padLeft(2, '0')}_"
+        "${now.hour.toString().padLeft(2, '0')}"
+        "${now.minute.toString().padLeft(2, '0')}"
+        "${now.second.toString().padLeft(2, '0')}";
+  }
+
   Future<Directory> startSession() async {
     final appDir = await getExternalStorageDirectory();
 
@@ -81,13 +92,7 @@ class CollectionService {
 
     final now = DateTime.now();
 
-    final sessionName =
-        "Session_${now.year}"
-        "${now.month.toString().padLeft(2, '0')}"
-        "${now.day.toString().padLeft(2, '0')}_"
-        "${now.hour.toString().padLeft(2, '0')}"
-        "${now.minute.toString().padLeft(2, '0')}"
-        "${now.second.toString().padLeft(2, '0')}";
+    final sessionName = generateSessionName(now);
 
     _sessionDirectory = Directory(
       path.join(appDir.path, sessionName),
@@ -206,8 +211,11 @@ class CollectionService {
     return savedVideo;
   }
 
-  Future<void> writeMetadata() async {
-    final metadata = {
+  /// Builds the metadata map for the current session. Pulled out from
+  /// writeMetadata() so the shape of the metadata can be tested without
+  /// touching the file system.
+  Map<String, dynamic> buildMetadata() {
+    return {
       "session_id": path.basename(sessionDirectory.path),
       "start_time": _sessionStartTime?.toIso8601String(),
       "end_time": _sessionEndTime?.toIso8601String(),
@@ -216,11 +224,13 @@ class CollectionService {
       "gps_file": "gps.csv",
       "imu_file": "imu.csv",
     };
+  }
 
+  Future<void> writeMetadata() async {
     final file = getMetadataFile();
 
     await file.writeAsString(
-      const JsonEncoder.withIndent("  ").convert(metadata),
+      const JsonEncoder.withIndent("  ").convert(buildMetadata()),
     );
   }
 
