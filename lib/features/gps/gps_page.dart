@@ -74,7 +74,7 @@ class _GpsPageState extends State<GpsPage> {
                   ListTile(
                     title: const Text("Timestamp"),
                     subtitle: Text(
-                      p.timestamp?.toString() ?? "Unavailable",
+                      p.timestamp.toString(),
                     ),
                   ),
                 ],
@@ -85,4 +85,4 @@ class _GpsPageState extends State<GpsPage> {
       ),
     );
   }
-}
+} 

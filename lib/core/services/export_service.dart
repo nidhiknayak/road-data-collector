@@ -33,9 +33,7 @@ class ExportService {
 
     final bytes = ZipEncoder().encode(archive);
 
-    if (bytes == null) {
-      throw Exception("Failed to create ZIP archive.");
-    }
+    
 
     final tempDir = await getTemporaryDirectory();
 

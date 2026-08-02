@@ -16,7 +16,7 @@ import 'session_clock.dart';
 import 'settings_service.dart';
 
 class CollectionService {
-  late final CameraService _cameraService;
+  
   late final RecordingService _recordingService;
 
   final GpsService _gpsService;
@@ -47,7 +47,7 @@ class CollectionService {
     required CameraService cameraService,
     required this._gpsService,
   }) {
-    _cameraService = cameraService;
+    
     _recordingService = RecordingService(cameraService);
   }
 
