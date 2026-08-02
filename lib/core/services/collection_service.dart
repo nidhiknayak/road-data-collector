@@ -36,6 +36,13 @@ class CollectionService {
   DateTime? _sessionStartTime;
   DateTime? _sessionEndTime;
 
+  // Owns the "is a collection session active" state. This is intentionally
+  // independent of the camera/RecordingService, since a session can run
+  // with GPS + IMU only (camera disabled in settings).
+  bool _isRecording = false;
+
+  bool _lastCameraEnabled = false;
+
   CollectionService({
     required CameraService cameraService,
     required this._gpsService,
@@ -53,7 +60,14 @@ class CollectionService {
 
   bool get hasActiveSession => _sessionDirectory != null;
 
-  bool get isRecording => _recordingService.isRecording;
+  /// True whenever a collection session (GPS/IMU/optionally camera) is active.
+  bool get isRecording => _isRecording;
+
+  /// True only when the camera itself is actively recording as part of the
+  /// current session (false if camera was disabled in settings).
+  bool get cameraRecording =>
+      _lastCameraEnabled && _recordingService.isRecording;
+
   bool get imuActive => _imuLogger.isActive;
 
   SessionClock get clock => _clock;
@@ -104,34 +118,50 @@ class CollectionService {
     final gpsFile = getGpsFile();
     final imuFile = getImuFile();
 
-    // Start GPS logging.
-    await _gpsLogger.start(
-      _gpsService.getPositionStream(),
-      gpsFile,
-      _clock,
-    );
+    try {
+      // Start GPS logging.
+      await _gpsLogger.start(
+        _gpsService.getPositionStream(),
+        gpsFile,
+        _clock,
+      );
 
-    // Start IMU logging.
-    await _imuLogger.start(
-      _imuService,
-      imuFile,
-      _clock,
-    );
+      // Start IMU logging.
+      await _imuLogger.start(
+        _imuService,
+        imuFile,
+        _clock,
+      );
 
-    // Start video recording (only if camera is enabled in settings).
-    final cameraEnabled =
-        await _settingsService.isCameraEnabled();
+      // Start video recording (only if camera is enabled in settings).
+      final cameraEnabled = await _settingsService.isCameraEnabled();
+      _lastCameraEnabled = cameraEnabled;
 
-    if (cameraEnabled) {
-      await _recordingService.startRecording();
+      if (cameraEnabled) {
+        await _recordingService.startRecording();
+      }
+
+      // Only flip to "recording" once everything that should have started
+      // has actually started.
+      _isRecording = true;
+    } catch (e, stackTrace) {
+      debugPrint("START RECORDING ERROR: $e");
+      debugPrintStack(stackTrace: stackTrace);
+
+      // Best-effort teardown of whatever did start so we don't leak
+      // dangling GPS/IMU subscriptions.
+      await _gpsLogger.stop();
+      await _imuLogger.stop();
+      _clock.stop();
+
+      rethrow;
     }
   }
 
   Future<File?> stopRecordingSession() async {
     XFile? video;
 
-    final cameraEnabled =
-        await _settingsService.isCameraEnabled();
+    final cameraEnabled = _lastCameraEnabled;
 
     if (cameraEnabled) {
       video = await _recordingService.stopRecording();
@@ -145,6 +175,9 @@ class CollectionService {
     // Stop sensor logging.
     await _gpsLogger.stop();
     await _imuLogger.stop();
+
+    // Flip regardless of whether the camera path ran.
+    _isRecording = false;
 
     File? savedVideo;
 

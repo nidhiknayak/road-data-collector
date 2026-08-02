@@ -288,7 +288,7 @@ class _RecordingPageState extends State<RecordingPage> {
               _buildStatusTile(
                 icon: Icons.videocam,
                 title: "Camera",
-                active: _collectionService.isRecording,
+                active: _collectionService.cameraRecording,
               ),
             ],
           ),
