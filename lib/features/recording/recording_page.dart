@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/services/camera_service.dart';
 import '../../core/services/collection_service.dart';
@@ -21,11 +22,9 @@ class _RecordingPageState extends State<RecordingPage> {
   late final CollectionService _collectionService;
 
   final GpsService _gpsService = GpsService();
-
   final SettingsService _settingsService = SettingsService();
 
   bool _cameraEnabled = true;
-
   bool _loading = true;
 
   Timer? _timer;
@@ -42,14 +41,12 @@ class _RecordingPageState extends State<RecordingPage> {
 
   void _startTimer() {
     _elapsed = Duration.zero;
-
     _timer?.cancel();
 
     _timer = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
         if (!mounted) return;
-
         setState(() {
           _elapsed += const Duration(seconds: 1);
         });
@@ -79,9 +76,7 @@ class _RecordingPageState extends State<RecordingPage> {
               color: active ? Colors.green : Colors.red,
             ),
             const SizedBox(width: 8),
-            Text(
-              active ? "Active" : "Inactive",
-            ),
+            Text(active ? "Active" : "Inactive"),
           ],
         ),
       ),
@@ -131,8 +126,10 @@ class _RecordingPageState extends State<RecordingPage> {
   Future<void> _toggleRecording() async {
     try {
       if (_collectionService.isRecording) {
-        final File? video =
-            await _collectionService.stopRecordingSession();
+        final File? video = await _collectionService.stopRecordingSession();
+
+        // Allow screen to sleep again.
+        await WakelockPlus.disable();
 
         _stopTimer();
 
@@ -141,14 +138,15 @@ class _RecordingPageState extends State<RecordingPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              video != null
-                  ? "Saved: ${video.path}"
-                  : "Recording stopped.",
+              video != null ? "Saved: ${video.path}" : "Recording stopped.",
             ),
           ),
         );
       } else {
         await _collectionService.startRecordingSession();
+
+        // Keep screen awake while recording.
+        await WakelockPlus.enable();
 
         _startTimer();
 
@@ -165,6 +163,8 @@ class _RecordingPageState extends State<RecordingPage> {
         setState(() {});
       }
     } catch (e, stackTrace) {
+      await WakelockPlus.disable();
+
       debugPrint("Recording Error: $e");
       debugPrintStack(stackTrace: stackTrace);
 
@@ -180,6 +180,8 @@ class _RecordingPageState extends State<RecordingPage> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
+
     _timer?.cancel();
 
     if (_cameraEnabled) {
@@ -239,10 +241,8 @@ class _RecordingPageState extends State<RecordingPage> {
                     ),
                   ),
           ),
-
           if (_collectionService.isRecording) ...[
             const SizedBox(height: 12),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -257,9 +257,7 @@ class _RecordingPageState extends State<RecordingPage> {
                 ),
               ],
             ),
-
             const SizedBox(height: 8),
-
             Text(
               formattedTime,
               style: const TextStyle(
@@ -267,10 +265,8 @@ class _RecordingPageState extends State<RecordingPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 20),
           ],
-
           Column(
             children: [
               _buildStatusTile(
@@ -278,13 +274,11 @@ class _RecordingPageState extends State<RecordingPage> {
                 title: "GPS",
                 active: _collectionService.gpsConnected,
               ),
-
               _buildStatusTile(
                 icon: Icons.sensors,
                 title: "IMU",
                 active: _collectionService.imuActive,
               ),
-
               _buildStatusTile(
                 icon: Icons.videocam,
                 title: "Camera",
@@ -292,7 +286,6 @@ class _RecordingPageState extends State<RecordingPage> {
               ),
             ],
           ),
-
           Padding(
             padding: const EdgeInsets.all(24),
             child: SizedBox(

@@ -1,6 +1,7 @@
 import 'package:camera/camera.dart';
 
 import 'camera_service.dart';
+import 'logger_service.dart';
 
 class RecordingService {
   final CameraService _cameraService;
@@ -14,7 +15,17 @@ class RecordingService {
   Future<void> startRecording() async {
     if (_isRecording) return;
 
+    LoggerService.info(
+      component: "RecordingService",
+      message: "Starting video recording",
+    );
+
     await _cameraService.controller!.startVideoRecording();
+
+    LoggerService.info(
+      component: "RecordingService",
+      message: "Video recording started",
+    );
 
     _isRecording = true;
   }
@@ -22,11 +33,30 @@ class RecordingService {
   Future<XFile?> stopRecording() async {
     if (!_isRecording) return null;
 
-    final XFile file =
-        await _cameraService.controller!.stopVideoRecording();
+    LoggerService.info(
+      component: "RecordingService",
+      message: "Stopping video recording",
+    );
 
-    _isRecording = false;
+    try {
+      final XFile file = await _cameraService.controller!.stopVideoRecording();
 
-    return file;
+      _isRecording = false;
+
+      LoggerService.info(
+        component: "RecordingService",
+        message: "Video recording stopped",
+      );
+
+      return file;
+    } catch (e, stackTrace) {
+      LoggerService.error(
+        component: "RecordingService",
+        message: "Failed to stop video recording",
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 }

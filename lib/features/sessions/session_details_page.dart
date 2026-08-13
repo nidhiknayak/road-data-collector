@@ -5,6 +5,9 @@ import 'package:latlong2/latlong.dart';
 
 import 'session_model.dart';
 import 'video_player_page.dart';
+import 'gps_viewer_page.dart';
+import 'imu_viewer_page.dart';
+import 'metadata_viewer_page.dart';
 
 import '../../core/services/export_service.dart';
 import '../../core/services/gps_route_service.dart';
@@ -144,6 +147,66 @@ class _SessionDetailsPageState
               : RouteMapWidget(
                   route: _route,
                 ),
+
+          const SizedBox(height: 24),
+
+          const Divider(height: 32),
+
+          Text(
+            "Data Viewers",
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+
+          const SizedBox(height: 12),
+
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GpsViewerPage(
+                    gpsPath: widget.session.gpsPath,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.location_on),
+            label: const Text("View GPS Data"),
+          ),
+
+          const SizedBox(height: 8),
+
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ImuViewerPage(
+                    imuPath: widget.session.imuPath,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.sensors),
+            label: const Text("View IMU Data"),
+          ),
+
+          const SizedBox(height: 8),
+
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MetadataViewerPage(
+                    metadataPath: widget.session.metadataPath,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.description),
+            label: const Text("View Metadata"),
+          ),
 
           const SizedBox(height: 24),
 
