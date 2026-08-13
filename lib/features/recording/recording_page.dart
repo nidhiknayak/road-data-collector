@@ -27,6 +27,14 @@ class _RecordingPageState extends State<RecordingPage> {
   bool _cameraEnabled = true;
   bool _loading = true;
 
+  // Guards against re-entrancy: prevents a second tap on the Start/Stop
+  // button from firing a concurrent call into CollectionService while
+  // the first one is still awaiting (e.g. camera finalizing a long
+  // recording). Without this, rapid Stop taps on long recordings could
+  // trigger controller.stopVideoRecording() more than once concurrently,
+  // which is the source of the "StreamSink is bound to a stream" error.
+  bool _isProcessing = false;
+
   Timer? _timer;
   Duration _elapsed = Duration.zero;
 
@@ -124,6 +132,13 @@ class _RecordingPageState extends State<RecordingPage> {
   }
 
   Future<void> _toggleRecording() async {
+    // Ignore taps while a start/stop operation is already in flight.
+    if (_isProcessing) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
     try {
       if (_collectionService.isRecording) {
         final File? video = await _collectionService.stopRecordingSession();
@@ -158,10 +173,6 @@ class _RecordingPageState extends State<RecordingPage> {
           ),
         );
       }
-
-      if (mounted) {
-        setState(() {});
-      }
     } catch (e, stackTrace) {
       await WakelockPlus.disable();
 
@@ -175,6 +186,12 @@ class _RecordingPageState extends State<RecordingPage> {
           content: Text("Recording failed: $e"),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -292,16 +309,24 @@ class _RecordingPageState extends State<RecordingPage> {
               width: double.infinity,
               height: 60,
               child: FilledButton.icon(
-                onPressed: _toggleRecording,
-                icon: Icon(
-                  _collectionService.isRecording
-                      ? Icons.stop
-                      : Icons.fiber_manual_record,
-                ),
+                onPressed: _isProcessing ? null : _toggleRecording,
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        _collectionService.isRecording
+                            ? Icons.stop
+                            : Icons.fiber_manual_record,
+                      ),
                 label: Text(
-                  _collectionService.isRecording
-                      ? "Stop Recording"
-                      : "Start Recording",
+                  _isProcessing
+                      ? "Please wait..."
+                      : (_collectionService.isRecording
+                          ? "Stop Recording"
+                          : "Start Recording"),
                 ),
               ),
             ),

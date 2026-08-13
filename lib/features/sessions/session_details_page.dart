@@ -12,6 +12,7 @@ import 'metadata_viewer_page.dart';
 import '../../core/services/export_service.dart';
 import '../../core/services/gps_route_service.dart';
 import '../../core/services/session_delete_service.dart';
+import '../../core/services/correlation_service.dart';
 import 'route_map_widget.dart';
 
 class SessionDetailsPage extends StatefulWidget {
@@ -251,6 +252,46 @@ class _SessionDetailsPageState
             },
             icon: const Icon(Icons.share),
             label: const Text("Share Session"),
+          ),
+
+          const SizedBox(height: 12),
+
+          OutlinedButton.icon(
+            onPressed: () async {
+              final correlator = CorrelationService();
+
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                final outFile = await correlator.generate(
+                  sessionPath: widget.session.path,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context); // close loading dialog
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Correlation data saved: ${outFile.path}"),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.pop(context); // close loading dialog
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Correlation failed: $e")),
+                );
+              }
+            },
+            icon: const Icon(Icons.auto_graph),
+            label: const Text("Generate Correlation Data"),
           ),
 
           const SizedBox(height: 12),

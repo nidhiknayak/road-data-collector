@@ -44,6 +44,7 @@ class CollectionService {
   bool _isRecording = false;
 
   bool _lastCameraEnabled = false;
+  int? _cameraStartOffsetMs;
 
   CollectionService({
     required CameraService cameraService,
@@ -127,6 +128,7 @@ class CollectionService {
     await startSession();
 
     _sessionStartTime = DateTime.now();
+    _cameraStartOffsetMs = null;
 
     final gpsFile = getGpsFile();
     final imuFile = getImuFile();
@@ -152,6 +154,13 @@ class CollectionService {
 
       if (cameraEnabled) {
         await _recordingService.startRecording();
+
+        // Record the elapsed_ms at which video actually started, so
+        // frames can later be correlated against GPS/IMU elapsed_ms.
+        // This is captured right after startVideoRecording() returns;
+        // it's an approximation, not a frame-exact timestamp (there can
+        // be a small additional codec-startup lag on the device).
+        _cameraStartOffsetMs = _clock.elapsedMilliseconds;
       }
 
       // Only flip to "recording" once everything that should have started
@@ -363,6 +372,7 @@ class CollectionService {
       "video_file": "video.mp4",
       "gps_file": "gps.csv",
       "imu_file": "imu.csv",
+      "camera_start_offset_ms": _cameraStartOffsetMs,
     };
   }
 
