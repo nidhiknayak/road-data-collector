@@ -18,4 +18,6 @@ class SessionModel {
   String get imuPath => "$path/imu.csv";
 
   String get metadataPath => "$path/metadata.json";
+
+  String get correlationPath => "$path/correlation.json";
 }

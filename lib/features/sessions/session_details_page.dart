@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 
 import 'session_model.dart';
 import 'video_player_page.dart';
@@ -10,10 +9,11 @@ import 'imu_viewer_page.dart';
 import 'metadata_viewer_page.dart';
 
 import '../../core/services/export_service.dart';
-import '../../core/services/gps_route_service.dart';
 import '../../core/services/session_delete_service.dart';
 import '../../core/services/correlation_service.dart';
-import 'route_map_widget.dart';
+import '../../core/services/road_quality_service.dart';
+import '../../core/services/pothole_spike_finder.dart';
+import 'road_quality_map_widget.dart';
 
 class SessionDetailsPage extends StatefulWidget {
   final SessionModel session;
@@ -30,10 +30,10 @@ class SessionDetailsPage extends StatefulWidget {
 
 class _SessionDetailsPageState
     extends State<SessionDetailsPage> {
-  final GpsRouteService _routeService =
-      GpsRouteService();
+  final RoadQualityService _qualityService =
+      RoadQualityService();
 
-  List<LatLng> _route = [];
+  List<RoadQualitySegment> _segments = [];
 
   bool _loadingRoute = true;
 
@@ -44,8 +44,9 @@ class _SessionDetailsPageState
   }
 
   Future<void> _loadRoute() async {
-    _route = await _routeService.loadRoute(
-      widget.session.gpsPath,
+    _segments = await _qualityService.generate(
+      gpsPath: widget.session.gpsPath,
+      imuPath: widget.session.imuPath,
     );
 
     if (!mounted) return;
@@ -145,8 +146,8 @@ class _SessionDetailsPageState
               ? const Center(
                   child: CircularProgressIndicator(),
                 )
-              : RouteMapWidget(
-                  route: _route,
+              : RoadQualityMapWidget(
+                  segments: _segments,
                 ),
 
           const SizedBox(height: 24),
@@ -292,6 +293,49 @@ class _SessionDetailsPageState
             },
             icon: const Icon(Icons.auto_graph),
             label: const Text("Generate Correlation Data"),
+          ),
+
+          const SizedBox(height: 12),
+
+          OutlinedButton.icon(
+            onPressed: () async {
+              final finder = PotholeSpikeFinder();
+
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                final spikes = await finder.findSpikes(
+                  sessionPath: widget.session.path,
+                );
+
+                if (!context.mounted) return;
+                Navigator.pop(context); // close loading dialog
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      "Found ${spikes.length} IMU spikes. "
+                      "Timestamps saved for offline extraction.",
+                    ),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.pop(context); // close loading dialog
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Spike scan failed: $e")),
+                );
+              }
+            },
+            icon: const Icon(Icons.search),
+            label: const Text("Find Pothole Spikes"),
           ),
 
           const SizedBox(height: 12),
