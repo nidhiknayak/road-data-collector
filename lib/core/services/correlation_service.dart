@@ -9,8 +9,6 @@ import 'dart:math';
 /// Details screen after a recording is complete. It does not touch the
 /// recording path.
 class CorrelationService {
-  static const int _component = 500; // bucket size, ms — see bucketMs below
-
   /// Bucket width in milliseconds. 500ms was chosen as a reasonable
   /// starting granularity; tune based on typical driving speed / how
   /// short potholes are relative to frame rate.
