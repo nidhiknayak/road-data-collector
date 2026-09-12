@@ -7,6 +7,7 @@ import 'video_player_page.dart';
 import 'gps_viewer_page.dart';
 import 'imu_viewer_page.dart';
 import 'metadata_viewer_page.dart';
+import 'correlation_viewer_page.dart';
 
 import '../../core/services/export_service.dart';
 import '../../core/services/session_delete_service.dart';
@@ -270,16 +271,19 @@ class _SessionDetailsPageState
               );
 
               try {
-                final outFile = await correlator.generate(
+                await correlator.generate(
                   sessionPath: widget.session.path,
                 );
 
                 if (!context.mounted) return;
                 Navigator.pop(context); // close loading dialog
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Correlation data saved: ${outFile.path}"),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CorrelationViewerPage(
+                      correlationPath: widget.session.correlationPath,
+                    ),
                   ),
                 );
               } catch (e) {
@@ -293,6 +297,32 @@ class _SessionDetailsPageState
             },
             icon: const Icon(Icons.auto_graph),
             label: const Text("Generate Correlation Data"),
+          ),
+
+          const SizedBox(height: 8),
+
+          OutlinedButton.icon(
+            onPressed: () {
+              if (!File(widget.session.correlationPath).existsSync()) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("No correlation data yet — generate it first."),
+                  ),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CorrelationViewerPage(
+                    correlationPath: widget.session.correlationPath,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.visibility),
+            label: const Text("View Correlation Data"),
           ),
 
           const SizedBox(height: 12),
