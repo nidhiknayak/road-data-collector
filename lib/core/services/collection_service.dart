@@ -35,6 +35,10 @@ class CollectionService {
 
   Directory? _sessionDirectory;
 
+  String? _lastSessionPath;
+
+  String? get lastSessionPath => _lastSessionPath;
+
   DateTime? _sessionStartTime;
   DateTime? _sessionEndTime;
 
@@ -50,7 +54,6 @@ class CollectionService {
     required CameraService cameraService,
     required this._gpsService,
   }) {
-
     _recordingService = RecordingService(cameraService);
   }
 
@@ -58,6 +61,7 @@ class CollectionService {
     if (_sessionDirectory == null) {
       throw Exception("No active session.");
     }
+
     return _sessionDirectory!;
   }
 
@@ -233,6 +237,7 @@ class CollectionService {
 
     // 1. Stop camera. A camera failure must not block GPS/IMU shutdown.
     XFile? video;
+
     if (cameraEnabled) {
       try {
         video = await _recordingService.stopRecording();
@@ -244,6 +249,7 @@ class CollectionService {
           error: e,
           stackTrace: stackTrace,
         );
+
         video = null;
       }
     }
@@ -295,6 +301,7 @@ class CollectionService {
 
     // 5. Copy the recorded video into the session directory, if we have one.
     File? savedVideo;
+
     if (video != null) {
       final destination = getVideoFile();
 
@@ -306,6 +313,7 @@ class CollectionService {
 
       try {
         savedVideo = await File(video.path).copy(destination.path);
+
         LoggerService.info(
           component: _component,
           operation: "stopRecordingSession.videoCopy",
@@ -327,6 +335,8 @@ class CollectionService {
         message: "Camera was enabled but returned no video",
       );
     }
+
+    _lastSessionPath = _sessionDirectory?.path;
 
     // 6. Write metadata. Must happen before endSession() clears the session
     // directory, and must be attempted even if earlier steps failed, so we
@@ -373,6 +383,9 @@ class CollectionService {
       "gps_file": "gps.csv",
       "imu_file": "imu.csv",
       "camera_start_offset_ms": _cameraStartOffsetMs,
+      "road_rating": null,
+      "road_rating_score": null,
+      "rated_at": null,
     };
   }
 

@@ -32,8 +32,7 @@ class _SessionsPageState extends State<SessionsPage> {
 
   String _formatDuration(Duration duration) {
     final minutes = duration.inMinutes;
-    final seconds =
-        (duration.inSeconds % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
 
     return "$minutes:$seconds";
   }
@@ -41,35 +40,24 @@ class _SessionsPageState extends State<SessionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sessions"),
-      ),
+      appBar: AppBar(title: const Text("Sessions")),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: FutureBuilder<List<SessionModel>>(
           future: _sessions,
           builder: (context, snapshot) {
-            if (snapshot.connectionState ==
-                ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  "Error: ${snapshot.error}",
-                ),
-              );
+              return Center(child: Text("Error: ${snapshot.error}"));
             }
 
             final sessions = snapshot.data ?? [];
 
             if (sessions.isEmpty) {
-              return const Center(
-                child: Text("No recordings yet"),
-              );
+              return const Center(child: Text("No recordings yet"));
             }
 
             return ListView.builder(
@@ -83,28 +71,23 @@ class _SessionsPageState extends State<SessionsPage> {
                     vertical: 6,
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.folder),
+                    leading: Icon(Icons.folder, color: session.rating?.color),
                     title: Text(session.id),
                     subtitle: Text(
-                      _formatDuration(session.duration),
+                      "${_formatDuration(session.duration)}  •  "
+                      "${session.rating?.label ?? 'Not rated'}",
                     ),
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                    ),
+                    trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
-                      final deleted =
-                          await Navigator.push<bool>(
+                      await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => SessionDetailsPage(
-                            session: session,
-                          ),
+                          builder: (_) => SessionDetailsPage(session: session),
                         ),
                       );
 
-                      if (deleted == true) {
-                        _refresh();
-                      }
+                      if (!mounted) return;
+                      await _refresh();
                     },
                   ),
                 );

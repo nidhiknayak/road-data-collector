@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import '../../core/models/road_rating.dart';
 import '../../core/services/road_quality_service.dart';
 
 extension RoadQualityColor on RoadQuality {
@@ -33,8 +34,9 @@ extension RoadQualityColor on RoadQuality {
 
 class RoadQualityMapWidget extends StatelessWidget {
   final List<RoadQualitySegment> segments;
+  final RoadRating? rating;
 
-  const RoadQualityMapWidget({super.key, required this.segments});
+  const RoadQualityMapWidget({super.key, required this.segments, this.rating});
 
   @override
   Widget build(BuildContext context) {
@@ -54,42 +56,69 @@ class RoadQualityMapWidget extends StatelessWidget {
       children: [
         SizedBox(
           height: 300,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: allPoints.first,
-              initialZoom: 16,
-            ),
+          child: Stack(
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.road_data_collector',
+              FlutterMap(
+                options: MapOptions(
+                  initialCenter: allPoints.first,
+                  initialZoom: 16,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.road_data_collector',
+                  ),
+                  PolylineLayer(
+                    polylines: [
+                      for (final segment in segments)
+                        Polyline(
+                          points: segment.points,
+                          strokeWidth: 5,
+                          color: segment.quality.mapColor,
+                        ),
+                    ],
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: allPoints.first,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.blue,
+                          size: 32,
+                        ),
+                      ),
+                      Marker(
+                        point: allPoints.last,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.flag,
+                          color: Colors.black,
+                          size: 32,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              PolylineLayer(
-                polylines: [
-                  for (final segment in segments)
-                    Polyline(
-                      points: segment.points,
-                      strokeWidth: 5,
-                      color: segment.quality.mapColor,
+              if (rating != null)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Chip(
+                    avatar: Icon(rating!.icon, color: Colors.white, size: 18),
+                    label: Text(
+                      "Session: ${rating!.label}",
+                      style: const TextStyle(color: Colors.white),
                     ),
-                ],
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: allPoints.first,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(Icons.play_circle_fill, color: Colors.blue, size: 32),
+                    backgroundColor: rating!.color,
+                    side: BorderSide.none,
                   ),
-                  Marker(
-                    point: allPoints.last,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(Icons.flag, color: Colors.black, size: 32),
-                  ),
-                ],
-              ),
+                ),
             ],
           ),
         ),
@@ -97,10 +126,12 @@ class RoadQualityMapWidget extends StatelessWidget {
         Wrap(
           spacing: 12,
           children: RoadQuality.values
-              .map((q) => Chip(
-                    avatar: CircleAvatar(backgroundColor: q.mapColor),
-                    label: Text(q.label),
-                  ))
+              .map(
+                (q) => Chip(
+                  avatar: CircleAvatar(backgroundColor: q.mapColor),
+                  label: Text(q.label),
+                ),
+              )
               .toList(),
         ),
       ],

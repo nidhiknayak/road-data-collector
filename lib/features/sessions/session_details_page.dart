@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/models/road_rating.dart';
+import '../../core/services/session_rating_service.dart';
+
 import 'session_model.dart';
 import 'video_player_page.dart';
 import 'gps_viewer_page.dart';
@@ -19,29 +22,44 @@ import 'road_quality_map_widget.dart';
 class SessionDetailsPage extends StatefulWidget {
   final SessionModel session;
 
-  const SessionDetailsPage({
-    super.key,
-    required this.session,
-  });
+  const SessionDetailsPage({super.key, required this.session});
 
   @override
-  State<SessionDetailsPage> createState() =>
-      _SessionDetailsPageState();
+  State<SessionDetailsPage> createState() => _SessionDetailsPageState();
 }
 
-class _SessionDetailsPageState
-    extends State<SessionDetailsPage> {
-  final RoadQualityService _qualityService =
-      RoadQualityService();
+class _SessionDetailsPageState extends State<SessionDetailsPage> {
+  final RoadQualityService _qualityService = RoadQualityService();
 
   List<RoadQualitySegment> _segments = [];
+  final SessionRatingService _ratingService = SessionRatingService();
+  RoadRating? _rating;
+  bool _savingRating = false;
 
   bool _loadingRoute = true;
 
   @override
   void initState() {
     super.initState();
+    _rating = widget.session.rating;
     _loadRoute();
+  }
+
+  Future<void> _setRating(RoadRating rating) async {
+    if (_savingRating) return;
+    setState(() => _savingRating = true);
+    try {
+      await _ratingService.setRating(widget.session.path, rating);
+      if (!mounted) return;
+      setState(() => _rating = rating);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to save rating: $e")));
+    } finally {
+      if (mounted) setState(() => _savingRating = false);
+    }
   }
 
   Future<void> _loadRoute() async {
@@ -57,11 +75,7 @@ class _SessionDetailsPageState
     });
   }
 
-  Widget fileTile(
-    IconData icon,
-    String name,
-    String filePath,
-  ) {
+  Widget fileTile(IconData icon, String name, String filePath) {
     final exists = File(filePath).existsSync();
 
     return ListTile(
@@ -77,9 +91,7 @@ class _SessionDetailsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Session Details"),
-      ),
+      appBar: AppBar(title: const Text("Session Details")),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -90,43 +102,46 @@ class _SessionDetailsPageState
 
           const SizedBox(height: 16),
 
-          Text(
-            "Started",
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text("Started", style: Theme.of(context).textTheme.titleMedium),
 
-          Text(
-            widget.session.startTime?.toString() ?? "-",
-          ),
+          Text(widget.session.startTime?.toString() ?? "-"),
 
           const SizedBox(height: 16),
 
-          Text(
-            "Duration",
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text("Duration", style: Theme.of(context).textTheme.titleMedium),
 
           Text(widget.session.duration.toString()),
 
+          const SizedBox(height: 16),
+          Text("Road Rating", style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: RoadRating.values.reversed.map((r) {
+              final selected = _rating == r;
+              return ChoiceChip(
+                avatar: Icon(
+                  r.icon,
+                  size: 18,
+                  color: selected ? Colors.white : r.color,
+                ),
+                label: Text(r.label),
+                labelStyle: TextStyle(color: selected ? Colors.white : null),
+                selected: selected,
+                selectedColor: r.color,
+                showCheckmark: false,
+                onSelected: _savingRating ? null : (_) => _setRating(r),
+              );
+            }).toList(),
+          ),
+
           const Divider(height: 32),
 
-          fileTile(
-            Icons.videocam,
-            "video.mp4",
-            widget.session.videoPath,
-          ),
+          fileTile(Icons.videocam, "video.mp4", widget.session.videoPath),
 
-          fileTile(
-            Icons.location_on,
-            "gps.csv",
-            widget.session.gpsPath,
-          ),
+          fileTile(Icons.location_on, "gps.csv", widget.session.gpsPath),
 
-          fileTile(
-            Icons.sensors,
-            "imu.csv",
-            widget.session.imuPath,
-          ),
+          fileTile(Icons.sensors, "imu.csv", widget.session.imuPath),
 
           fileTile(
             Icons.description,
@@ -136,29 +151,19 @@ class _SessionDetailsPageState
 
           const SizedBox(height: 24),
 
-          Text(
-            "Route",
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text("Route", style: Theme.of(context).textTheme.titleMedium),
 
           const SizedBox(height: 12),
 
           _loadingRoute
-              ? const Center(
-                  child: CircularProgressIndicator(),
-                )
-              : RoadQualityMapWidget(
-                  segments: _segments,
-                ),
+              ? const Center(child: CircularProgressIndicator())
+              : RoadQualityMapWidget(segments: _segments, rating: _rating),
 
           const SizedBox(height: 24),
 
           const Divider(height: 32),
 
-          Text(
-            "Data Viewers",
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text("Data Viewers", style: Theme.of(context).textTheme.titleMedium),
 
           const SizedBox(height: 12),
 
@@ -167,9 +172,8 @@ class _SessionDetailsPageState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => GpsViewerPage(
-                    gpsPath: widget.session.gpsPath,
-                  ),
+                  builder: (_) =>
+                      GpsViewerPage(gpsPath: widget.session.gpsPath),
                 ),
               );
             },
@@ -184,9 +188,8 @@ class _SessionDetailsPageState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ImuViewerPage(
-                    imuPath: widget.session.imuPath,
-                  ),
+                  builder: (_) =>
+                      ImuViewerPage(imuPath: widget.session.imuPath),
                 ),
               );
             },
@@ -220,9 +223,8 @@ class _SessionDetailsPageState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => VideoPlayerPage(
-                    videoPath: widget.session.videoPath,
-                  ),
+                  builder: (_) =>
+                      VideoPlayerPage(videoPath: widget.session.videoPath),
                 ),
               );
             },
@@ -239,9 +241,8 @@ class _SessionDetailsPageState
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
               );
 
               try {
@@ -265,15 +266,12 @@ class _SessionDetailsPageState
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
               );
 
               try {
-                await correlator.generate(
-                  sessionPath: widget.session.path,
-                );
+                await correlator.generate(sessionPath: widget.session.path);
 
                 if (!context.mounted) return;
                 Navigator.pop(context); // close loading dialog
@@ -306,7 +304,9 @@ class _SessionDetailsPageState
               if (!File(widget.session.correlationPath).existsSync()) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text("No correlation data yet — generate it first."),
+                    content: Text(
+                      "No correlation data yet — generate it first.",
+                    ),
                   ),
                 );
                 return;
@@ -334,9 +334,8 @@ class _SessionDetailsPageState
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
               );
 
               try {
@@ -371,9 +370,7 @@ class _SessionDetailsPageState
           const SizedBox(height: 12),
 
           FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -405,11 +402,9 @@ class _SessionDetailsPageState
 
               Navigator.pop(context, true);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Session deleted."),
-                ),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("Session deleted.")));
             },
             icon: const Icon(Icons.delete),
             label: const Text("Delete Session"),

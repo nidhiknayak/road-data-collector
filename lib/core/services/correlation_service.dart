@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import '../models/road_rating.dart';
+
 /// Correlates GPS + IMU data against video time, in fixed-size buckets,
 /// and produces a simple pothole signal from accelerometer magnitude.
 ///
@@ -43,6 +45,7 @@ class CorrelationService {
     }
 
     final durationMs = metadata["duration_ms"] as int?;
+    final rating = RoadRating.fromValue(metadata["road_rating"] as String?);
     if (durationMs == null) {
       throw Exception("Session metadata is missing duration_ms.");
     }
@@ -89,8 +92,9 @@ class CorrelationService {
       int scan = imuCursor;
       while (scan < imuRows.length && imuRows[scan].elapsedMs < windowEnd) {
         final row = imuRows[scan];
-        final magnitude =
-            sqrt(row.ax * row.ax + row.ay * row.ay + row.az * row.az);
+        final magnitude = sqrt(
+          row.ax * row.ax + row.ay * row.ay + row.az * row.az,
+        );
         final deviation = (magnitude - _gravity).abs();
         if (accelPeak == null || deviation > accelPeak) {
           accelPeak = deviation;
@@ -116,6 +120,8 @@ class CorrelationService {
         "speed": gpsRow?.speed,
         "accel_peak_deviation": accelPeak,
         "pothole": (accelPeak ?? 0) >= potholeThreshold,
+        "road_rating": rating?.value,
+        "road_rating_score": rating?.score,
       });
     }
 
@@ -125,6 +131,8 @@ class CorrelationService {
         "bucket_ms": bucketMs,
         "pothole_threshold": potholeThreshold,
         "camera_start_offset_ms": cameraOffsetMs,
+        "road_rating": rating?.value,
+        "road_rating_score": rating?.score,
         "buckets": buckets,
       }),
     );
@@ -141,12 +149,14 @@ class CorrelationService {
       if (line.trim().isEmpty) continue;
       final parts = line.split(",");
       if (parts.length < 4) continue;
-      rows.add(_ImuRow(
-        elapsedMs: int.parse(parts[0]),
-        ax: double.parse(parts[1]),
-        ay: double.parse(parts[2]),
-        az: double.parse(parts[3]),
-      ));
+      rows.add(
+        _ImuRow(
+          elapsedMs: int.parse(parts[0]),
+          ax: double.parse(parts[1]),
+          ay: double.parse(parts[2]),
+          az: double.parse(parts[3]),
+        ),
+      );
     }
     return rows;
   }
@@ -160,12 +170,14 @@ class CorrelationService {
       if (line.trim().isEmpty) continue;
       final parts = line.split(",");
       if (parts.length < 5) continue;
-      rows.add(_GpsRow(
-        elapsedMs: int.parse(parts[0]),
-        latitude: double.parse(parts[1]),
-        longitude: double.parse(parts[2]),
-        speed: double.parse(parts[4]),
-      ));
+      rows.add(
+        _GpsRow(
+          elapsedMs: int.parse(parts[0]),
+          latitude: double.parse(parts[1]),
+          longitude: double.parse(parts[2]),
+          speed: double.parse(parts[4]),
+        ),
+      );
     }
     return rows;
   }

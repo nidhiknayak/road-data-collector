@@ -1,14 +1,18 @@
+import '../../core/models/road_rating.dart';
+
 class SessionModel {
   final String id;
   final String path;
   final DateTime? startTime;
   final Duration duration;
+  final RoadRating? rating;
 
   const SessionModel({
     required this.id,
     required this.path,
     required this.startTime,
     required this.duration,
+    this.rating,
   });
 
   String get videoPath => "$path/video.mp4";

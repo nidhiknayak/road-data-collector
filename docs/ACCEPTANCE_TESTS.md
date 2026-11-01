@@ -238,6 +238,33 @@ Verify stability during extended recording.
 
 ---
 
+# AT-011 - Rate Session
+
+### Objective
+
+Verify that a session rating persists and labels exported correlation data.
+
+### Steps
+
+1. Stop a recording with the camera enabled. Verify that **How was the road?** appears and tapping outside or dragging does not dismiss it.
+2. Choose **Very Bad**, then open the session details and return to the session list.
+3. Generate correlation data from Session Details.
+4. Change the rating to **Very Good**, return to the list, and reopen the session.
+5. Share the session and inspect the exported JSON and CSV files.
+6. Record with the camera disabled, stop, and choose **Skip for now**. Open that session later and rate it.
+7. Open an older session without rating keys and set its rating.
+
+### Expected Result
+
+- All four rating choices and **Skip for now** are available after stopping, with or without video.
+- Skipped and older sessions show **Not rated** in the session list and remain available for later rating.
+- Session Details reflects the saved choice after reopening. The list shows its label and folder color, and the map shows a session rating chip alongside the existing segment colors.
+- `metadata.json` preserves the session data and contains `road_rating`, `road_rating_score` (1–4), and an ISO timestamp in `rated_at`.
+- Generating or regenerating `correlation.json` copies the current rating and score to its top level and every bucket. Changing a rating also patches existing correlation data.
+- Exported JSON includes the latest rating. The GPS and IMU CSV files remain unchanged.
+
+---
+
 # Acceptance Criteria
 
 The application is considered accepted if:

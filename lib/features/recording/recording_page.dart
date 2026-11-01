@@ -5,10 +5,13 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../../core/models/road_rating.dart';
 import '../../core/services/camera_service.dart';
 import '../../core/services/collection_service.dart';
 import '../../core/services/gps_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/session_rating_service.dart';
+import '../sessions/rating_sheet.dart';
 
 class RecordingPage extends StatefulWidget {
   const RecordingPage({super.key});
@@ -51,15 +54,12 @@ class _RecordingPageState extends State<RecordingPage> {
     _elapsed = Duration.zero;
     _timer?.cancel();
 
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (!mounted) return;
-        setState(() {
-          _elapsed += const Duration(seconds: 1);
-        });
-      },
-    );
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _elapsed += const Duration(seconds: 1);
+      });
+    });
   }
 
   void _stopTimer() {
@@ -123,11 +123,37 @@ class _RecordingPageState extends State<RecordingPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Initialization failed: $e"),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Initialization failed: $e")));
+    }
+  }
+
+  Future<void> _promptForRating() async {
+    final sessionPath = _collectionService.lastSessionPath;
+    if (sessionPath == null || !mounted) return;
+
+    final rating = await showModalBottomSheet<RoadRating>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      builder: (_) => const RatingSheet(),
+    );
+
+    if (rating == null || !mounted) return;
+
+    try {
+      await SessionRatingService().setRating(sessionPath, rating);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Road rated: ${rating.label}")));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to save rating: $e")));
     }
   }
 
@@ -157,6 +183,7 @@ class _RecordingPageState extends State<RecordingPage> {
             ),
           ),
         );
+        await _promptForRating();
       } else {
         await _collectionService.startRecordingSession();
 
@@ -167,11 +194,9 @@ class _RecordingPageState extends State<RecordingPage> {
 
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Recording started."),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Recording started.")));
       }
     } catch (e, stackTrace) {
       await WakelockPlus.disable();
@@ -181,11 +206,9 @@ class _RecordingPageState extends State<RecordingPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Recording failed: $e"),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Recording failed: $e")));
     } finally {
       if (mounted) {
         setState(() {
@@ -211,24 +234,16 @@ class _RecordingPageState extends State<RecordingPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Recording"),
-      ),
+      appBar: AppBar(title: const Text("Recording")),
       body: Column(
         children: [
           Expanded(
             child: _cameraEnabled
-                ? CameraPreview(
-                    _cameraService.controller!,
-                  )
+                ? CameraPreview(_cameraService.controller!)
                 : Container(
                     color: Colors.black12,
                     child: const Center(
@@ -263,10 +278,7 @@ class _RecordingPageState extends State<RecordingPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.fiber_manual_record,
-                  color: Colors.red,
-                ),
+                const Icon(Icons.fiber_manual_record, color: Colors.red),
                 const SizedBox(width: 8),
                 Text(
                   "Recording",
@@ -277,10 +289,7 @@ class _RecordingPageState extends State<RecordingPage> {
             const SizedBox(height: 8),
             Text(
               formattedTime,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
           ],
@@ -325,8 +334,8 @@ class _RecordingPageState extends State<RecordingPage> {
                   _isProcessing
                       ? "Please wait..."
                       : (_collectionService.isRecording
-                          ? "Stop Recording"
-                          : "Start Recording"),
+                            ? "Stop Recording"
+                            : "Start Recording"),
                 ),
               ),
             ),
