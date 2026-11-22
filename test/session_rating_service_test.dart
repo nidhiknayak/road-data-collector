@@ -13,6 +13,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory session;
   final service = SessionRatingService();
+  const expectedScores = {
+    RoadRating.veryGood: 1,
+    RoadRating.good: 2,
+    RoadRating.bad: 3,
+    RoadRating.veryBad: 4,
+  };
   const gps =
       'elapsed_ms,latitude,longitude,altitude,speed\n'
       '200,12.9,77.5,900,10\n700,12.91,77.51,900,12\n';
@@ -24,12 +30,12 @@ void main() {
 
   void expectLabels(Map<String, dynamic> data, RoadRating? rating) {
     expect(data['road_rating'], rating?.value);
-    expect(data['road_rating_score'], rating?.score);
+    expect(data['road_rating_score'], expectedScores[rating]);
     final buckets = data['buckets'] as List;
     expect(buckets, hasLength(2));
     for (final bucket in buckets) {
       expect(bucket['road_rating'], rating?.value);
-      expect(bucket['road_rating_score'], rating?.score);
+      expect(bucket['road_rating_score'], expectedScores[rating]);
     }
     expect(buckets[0]['pothole'], false);
     expect(buckets[1]['pothole'], true);
@@ -58,7 +64,7 @@ void main() {
         await service.setRating(session.path, rating);
         final metadata = await readJson('metadata.json');
         expect(metadata['road_rating'], rating.value);
-        expect(metadata['road_rating_score'], rating.score);
+        expect(metadata['road_rating_score'], expectedScores[rating]);
         expect(DateTime.tryParse(metadata['rated_at'] as String), isNotNull);
         expect(metadata['session_id'], 'Session_Test');
         expect(metadata['duration_ms'], 1200);

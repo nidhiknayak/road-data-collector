@@ -4,23 +4,23 @@ enum RoadRating {
   veryBad(
     'very_bad',
     'Very Bad',
-    1,
+    4,
     Color(0xFFC62828),
     Icons.sentiment_very_dissatisfied,
   ),
-  bad('bad', 'Bad', 2, Color(0xFFEF6C00), Icons.sentiment_dissatisfied),
-  good('good', 'Good', 3, Color(0xFF7CB342), Icons.sentiment_satisfied),
+  bad('bad', 'Bad', 3, Color(0xFFEF6C00), Icons.sentiment_dissatisfied),
+  good('good', 'Good', 2, Color(0xFF7CB342), Icons.sentiment_satisfied),
   veryGood(
     'very_good',
     'Very Good',
-    4,
+    1,
     Color(0xFF2E7D32),
     Icons.sentiment_very_satisfied,
   );
 
   final String value; // what gets written to JSON
   final String label;
-  final int score; // 1 (very bad) .. 4 (very good), handy for training
+  final int score; // 1 (very good) .. 4 (very bad), matching dataset labels
   final Color color;
   final IconData icon;
 

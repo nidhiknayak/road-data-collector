@@ -49,10 +49,12 @@ class CollectionService {
 
   bool _lastCameraEnabled = false;
   int? _cameraStartOffsetMs;
+  final Map<String, dynamic> extraMetadata;
 
   CollectionService({
     required CameraService cameraService,
     required this._gpsService,
+    this.extraMetadata = const {},
   }) {
     _recordingService = RecordingService(cameraService);
   }
@@ -101,9 +103,7 @@ class CollectionService {
 
     final sessionName = generateSessionName(now);
 
-    _sessionDirectory = Directory(
-      path.join(appDir.path, sessionName),
-    );
+    _sessionDirectory = Directory(path.join(appDir.path, sessionName));
 
     if (!await _sessionDirectory!.exists()) {
       await _sessionDirectory!.create(recursive: true);
@@ -124,7 +124,10 @@ class CollectionService {
     LoggerService.setSession(null);
   }
 
-  Future<void> startRecordingSession() async {
+  Future<void> startRecordingSession({
+    void Function(CameraImage)? onFrame,
+    bool requireCamera = false,
+  }) async {
     // Start common session clock.
     _clock.start();
 
@@ -139,25 +142,18 @@ class CollectionService {
 
     try {
       // Start GPS logging.
-      await _gpsLogger.start(
-        _gpsService.getPositionStream(),
-        gpsFile,
-        _clock,
-      );
+      await _gpsLogger.start(_gpsService.getPositionStream(), gpsFile, _clock);
 
       // Start IMU logging.
-      await _imuLogger.start(
-        _imuService,
-        imuFile,
-        _clock,
-      );
+      await _imuLogger.start(_imuService, imuFile, _clock);
 
       // Start video recording (only if camera is enabled in settings).
-      final cameraEnabled = await _settingsService.isCameraEnabled();
+      final cameraEnabled =
+          requireCamera || await _settingsService.isCameraEnabled();
       _lastCameraEnabled = cameraEnabled;
 
       if (cameraEnabled) {
-        await _recordingService.startRecording();
+        await _recordingService.startRecording(onFrame: onFrame);
 
         // Record the elapsed_ms at which video actually started, so
         // frames can later be correlated against GPS/IMU elapsed_ms.
@@ -375,6 +371,7 @@ class CollectionService {
   /// touching the file system.
   Map<String, dynamic> buildMetadata() {
     return {
+      ...extraMetadata,
       "session_id": path.basename(sessionDirectory.path),
       "start_time": _sessionStartTime?.toIso8601String(),
       "end_time": _sessionEndTime?.toIso8601String(),
@@ -398,38 +395,18 @@ class CollectionService {
   }
 
   File getGpsFile() {
-    return File(
-      path.join(
-        sessionDirectory.path,
-        "gps.csv",
-      ),
-    );
+    return File(path.join(sessionDirectory.path, "gps.csv"));
   }
 
   File getImuFile() {
-    return File(
-      path.join(
-        sessionDirectory.path,
-        "imu.csv",
-      ),
-    );
+    return File(path.join(sessionDirectory.path, "imu.csv"));
   }
 
   File getVideoFile() {
-    return File(
-      path.join(
-        sessionDirectory.path,
-        "video.mp4",
-      ),
-    );
+    return File(path.join(sessionDirectory.path, "video.mp4"));
   }
 
   File getMetadataFile() {
-    return File(
-      path.join(
-        sessionDirectory.path,
-        "metadata.json",
-      ),
-    );
+    return File(path.join(sessionDirectory.path, "metadata.json"));
   }
 }

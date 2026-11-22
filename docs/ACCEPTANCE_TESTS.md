@@ -259,7 +259,7 @@ Verify that a session rating persists and labels exported correlation data.
 - All four rating choices and **Skip for now** are available after stopping, with or without video.
 - Skipped and older sessions show **Not rated** in the session list and remain available for later rating.
 - Session Details reflects the saved choice after reopening. The list shows its label and folder color, and the map shows a session rating chip alongside the existing segment colors.
-- `metadata.json` preserves the session data and contains `road_rating`, `road_rating_score` (1–4), and an ISO timestamp in `rated_at`.
+- `metadata.json` preserves the session data and contains `road_rating`, `road_rating_score` (1 = Very Good, 2 = Good, 3 = Bad, 4 = Very Bad, matching the dataset labels), and an ISO timestamp in `rated_at`.
 - Generating or regenerating `correlation.json` copies the current rating and score to its top level and every bucket. Changing a rating also patches existing correlation data.
 - Exported JSON includes the latest rating. The GPS and IMU CSV files remain unchanged.
 

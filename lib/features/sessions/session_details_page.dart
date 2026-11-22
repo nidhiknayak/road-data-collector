@@ -18,6 +18,7 @@ import '../../core/services/correlation_service.dart';
 import '../../core/services/road_quality_service.dart';
 import '../../core/services/pothole_spike_finder.dart';
 import 'road_quality_map_widget.dart';
+import '../live_map/live_route_map.dart';
 
 class SessionDetailsPage extends StatefulWidget {
   final SessionModel session;
@@ -37,6 +38,7 @@ class _SessionDetailsPageState extends State<SessionDetailsPage> {
   bool _savingRating = false;
 
   bool _loadingRoute = true;
+  bool _hasVisionRoute = false;
 
   @override
   void initState() {
@@ -63,10 +65,15 @@ class _SessionDetailsPageState extends State<SessionDetailsPage> {
   }
 
   Future<void> _loadRoute() async {
-    _segments = await _qualityService.generate(
-      gpsPath: widget.session.gpsPath,
-      imuPath: widget.session.imuPath,
-    );
+    _hasVisionRoute = await File(
+      '${widget.session.path}/vision_route.geojson',
+    ).exists();
+    if (!_hasVisionRoute) {
+      _segments = await _qualityService.generate(
+        gpsPath: widget.session.gpsPath,
+        imuPath: widget.session.imuPath,
+      );
+    }
 
     if (!mounted) return;
 
@@ -157,6 +164,20 @@ class _SessionDetailsPageState extends State<SessionDetailsPage> {
 
           _loadingRoute
               ? const Center(child: CircularProgressIndicator())
+              : _hasVisionRoute
+              ? OutlinedButton.icon(
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('View saved live road map'),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RecordedLiveRoutePage(
+                        geoJsonPath:
+                            '${widget.session.path}/vision_route.geojson',
+                      ),
+                    ),
+                  ),
+                )
               : RoadQualityMapWidget(segments: _segments, rating: _rating),
 
           const SizedBox(height: 24),

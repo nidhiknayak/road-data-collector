@@ -2,14 +2,25 @@ import 'package:camera/camera.dart';
 
 class CameraService {
   CameraController? controller;
+  final ResolutionPreset resolutionPreset;
+  final ImageFormatGroup? imageFormatGroup;
+
+  CameraService({
+    this.resolutionPreset = ResolutionPreset.veryHigh,
+    this.imageFormatGroup,
+  });
 
   Future<void> initialize() async {
     final cameras = await availableCameras();
 
     controller = CameraController(
-      cameras.first,
-      ResolutionPreset.veryHigh,
+      cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      ),
+      resolutionPreset,
       enableAudio: false,
+      imageFormatGroup: imageFormatGroup,
     );
 
     await controller!.initialize();
@@ -30,7 +41,9 @@ class CameraService {
     return await controller!.stopVideoRecording();
   }
 
-  void dispose() {
-    controller?.dispose();
+  Future<void> dispose() async {
+    final previous = controller;
+    controller = null;
+    await previous?.dispose();
   }
 }

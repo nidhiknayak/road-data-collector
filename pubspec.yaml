@@ -2,7 +2,7 @@ name: road_data_collector
 description: "A Flutter app for collecting road condition data."
 publish_to: 'none'
 
-version: 1.4.0+4
+version: 1.5.0+5
 
 environment:
   sdk: ">=3.12.2 <4.0.0"

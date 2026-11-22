@@ -12,7 +12,7 @@ class RecordingService {
 
   bool get isRecording => _isRecording;
 
-  Future<void> startRecording() async {
+  Future<void> startRecording({void Function(CameraImage)? onFrame}) async {
     if (_isRecording) return;
 
     LoggerService.info(
@@ -20,7 +20,9 @@ class RecordingService {
       message: "Starting video recording",
     );
 
-    await _cameraService.controller!.startVideoRecording();
+    // Keep the SDK's persistent-recording default so removing the preview
+    // surface does not end the video or the analysis stream.
+    await _cameraService.controller!.startVideoRecording(onAvailable: onFrame);
 
     LoggerService.info(
       component: "RecordingService",

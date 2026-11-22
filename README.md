@@ -183,6 +183,9 @@ Each session generates a `metadata.json` file containing:
 - Duration
 - Video / GPS / IMU filenames
 - Camera start offset (ms) - used to align video time against GPS/IMU elapsed time
+- Optional session road rating (`road_rating`), numeric score (`road_rating_score`), and rating timestamp (`rated_at`)
+
+Rating scores match the dataset labels: **1 = Very Good, 2 = Good, 3 = Bad, 4 = Very Bad**. Saving a rating also updates existing `correlation.json` labels; newly generated correlation data uses the same scale. Sessions saved with the earlier reversed score scale need their rating saved again from Session Details to update their stored scores.
 
 ---
 
@@ -352,3 +355,12 @@ This application is being developed as part of an **M.Tech research project at P
 # License
 
 This project is intended for academic and research purposes.
+
+---
+
+# Live Road Map (Android 1.5)
+
+The **Live road map** main-screen tab records video/GPS/IMU while displaying
+camera-based road estimates on a coloured OpenStreetMap route. Inference runs
+on the phone. Estimates are experimental; uncertain stretches stay grey.
+See [setup, model limits, saved files and device checks](docs/LIVE_MAP.md).
