@@ -71,8 +71,9 @@ class LiveRoutePoint {
 class LiveRouteEdge {
   final LiveRoutePoint start, end;
   VisionEstimate? estimate;
-  LiveRouteEdge(this.start, this.end, {this.estimate});
-  RoadRating? get rating => estimate?.rating;
+  RoadRating? manualRating;
+  LiveRouteEdge(this.start, this.end, {this.estimate, this.manualRating});
+  RoadRating? get rating => manualRating ?? estimate?.rating;
 }
 
 /// Delayed results can colour only GPS edges covered by their capture window.
@@ -167,6 +168,19 @@ class LiveRouteTracker {
     _lastResultMs = result.endMs;
   }
 
+  int correct(VisionEstimate estimate, RoadRating rating) {
+    var changed = 0;
+    for (final edge in edges) {
+      if (edge.end.elapsedMs >= estimate.startMs &&
+          edge.end.elapsedMs <= estimate.endMs &&
+          (edge.estimate == null || identical(edge.estimate, estimate))) {
+        edge.manualRating = rating;
+        changed++;
+      }
+    }
+    return changed;
+  }
+
   Map<String, dynamic> toGeoJson() => {
     'type': 'FeatureCollection',
     'source': 'experimental_camera_vision',
@@ -187,6 +201,7 @@ class LiveRouteTracker {
             'start_accuracy_m': edge.start.accuracy,
             'end_accuracy_m': edge.end.accuracy,
             'road_rating': edge.rating?.value,
+            'manual_road_rating': edge.manualRating?.value,
             'status': edge.estimate?.status ?? 'pending',
             if (edge.estimate != null) ...edge.estimate!.toJson(),
           },
@@ -217,6 +232,9 @@ class LiveRouteTracker {
           estimate: p.containsKey('window_end_ms')
               ? VisionEstimate.fromMap(p)
               : null,
+          manualRating: RoadRating.fromValue(
+            p['manual_road_rating'] as String?,
+          ),
         ),
       );
     }

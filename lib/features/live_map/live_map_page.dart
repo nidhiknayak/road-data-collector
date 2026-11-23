@@ -36,8 +36,11 @@ class _LiveMapPageState extends State<LiveMapPage>
   CollectionService? _collection;
   LiveRouteTracker _route = LiveRouteTracker();
   VisionEstimate? _estimate;
+  RoadRating? _shownCorrection;
+  int? _correctedWindowEndMs;
   StreamSubscription<Position>? _gpsSubscription;
   IOSink? _predictions;
+  IOSink? _feedback;
   Directory? _directory;
   Timer? _timer;
   Future<void>? _analysis;
@@ -106,6 +109,8 @@ class _LiveMapPageState extends State<LiveMapPage>
       _ensureForeground();
       _route = LiveRouteTracker();
       _estimate = null;
+      _shownCorrection = null;
+      _correctedWindowEndMs = null;
       _elapsed = Duration.zero;
       _lastSampleMs = -1000;
       _errors = 0;
@@ -135,6 +140,7 @@ class _LiveMapPageState extends State<LiveMapPage>
           'vision_experimental': true,
           'vision_predictions_file': 'vision_predictions.jsonl',
           'vision_route_file': 'vision_route.geojson',
+          'vision_feedback_file': 'vision_feedback.jsonl',
         },
       );
       await _collection!.startRecordingSession(
@@ -149,6 +155,7 @@ class _LiveMapPageState extends State<LiveMapPage>
       _predictions = File(
         '${_directory!.path}/vision_predictions.jsonl',
       ).openWrite();
+      _feedback = File('${_directory!.path}/vision_feedback.jsonl').openWrite();
       _predictions!.done.catchError((Object error) {
         _error = 'The prediction log could not be saved.';
         _refresh();
@@ -170,6 +177,10 @@ class _LiveMapPageState extends State<LiveMapPage>
       });
     } catch (error) {
       _error = 'Could not start live mapping: $error';
+      await _feedback?.close();
+      _feedback = null;
+      await _predictions?.close();
+      _predictions = null;
       if (_collection?.hasActiveSession ?? false) {
         await _collection!.stopRecordingSession();
       }
@@ -265,9 +276,88 @@ class _LiveMapPageState extends State<LiveMapPage>
     }
     if (epoch != _epoch || _disposed) return;
     _estimate = estimate;
+    _shownCorrection = null;
+    _correctedWindowEndMs = null;
     _route.apply(estimate);
     _predictions?.writeln(jsonEncode(estimate.toJson()));
     _refresh();
+  }
+
+  Future<void> _correctCurrentRating() async {
+    final estimate = _estimate;
+    final collection = _collection;
+    final feedback = _feedback;
+    if (!_recording ||
+        _stopping ||
+        estimate == null ||
+        estimate.rating == null ||
+        collection == null ||
+        feedback == null ||
+        collection.clock.elapsedMilliseconds - estimate.endMs > 8000) {
+      return;
+    }
+    final epoch = _epoch;
+    final tappedAt = collection.clock.elapsedMilliseconds;
+    final point = _route.points.isEmpty ? null : _route.points.last;
+    final rating = await showModalBottomSheet<RoadRating>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('What was this section really like?'),
+              subtitle: Text('Your correction is saved with this recording.'),
+            ),
+            for (final option in RoadRating.values.reversed)
+              ListTile(
+                leading: Icon(option.icon, color: option.color),
+                title: Text(option.label),
+                onTap: () => Navigator.pop(context, option),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (rating == null || !_recording || _stopping || epoch != _epoch) return;
+    try {
+      feedback.writeln(
+        jsonEncode({
+          'type': 'rating_correction',
+          'window_start_ms': estimate.startMs,
+          'window_end_ms': estimate.endMs,
+          'tap_elapsed_ms': tappedAt,
+          'saved_elapsed_ms': collection.clock.elapsedMilliseconds,
+          'predicted_class': estimate.rawRating?.value,
+          'predicted_status': estimate.status,
+          'model_scores': estimate.scores,
+          'model_id': estimate.modelId,
+          'corrected_class': rating.value,
+          'camera_view': _view,
+          'video_file': 'video.mp4',
+          'imu_file': 'imu.csv',
+          if (point != null)
+            'gps_fix': {
+              'latitude': point.position.latitude,
+              'longitude': point.position.longitude,
+              'accuracy_m': point.accuracy,
+              'elapsed_ms': point.elapsedMs,
+            },
+        }),
+      );
+      await feedback.flush();
+      _route.correct(estimate, rating);
+      if (identical(_estimate, estimate)) {
+        _shownCorrection = rating;
+        _correctedWindowEndMs = estimate.endMs;
+      }
+      _saveSnapshot();
+      _refresh();
+    } catch (_) {
+      _error = 'This correction could not be saved.';
+      _refresh();
+    }
   }
 
   void _saveSnapshot() {
@@ -280,6 +370,7 @@ class _LiveMapPageState extends State<LiveMapPage>
           await temporary.writeAsString(data, flush: true);
           await temporary.rename('${directory.path}/vision_route.geojson');
           await _predictions?.flush();
+          await _feedback?.flush();
         })
         .catchError((Object error) {
           _error = 'The map could not be saved. Check available storage.';
@@ -302,6 +393,8 @@ class _LiveMapPageState extends State<LiveMapPage>
       await _saving;
       await _predictions?.close();
       _predictions = null;
+      await _feedback?.close();
+      _feedback = null;
       _lastSessionPath = _collection!.lastSessionPath;
     } catch (error) {
       _error = 'Recording stopped, but some files could not be saved: $error';
@@ -360,6 +453,7 @@ class _LiveMapPageState extends State<LiveMapPage>
         'The camera model estimates visible road condition. Its four-class accuracy was '
         '${((_modelInfo?["test_accuracy"] as num? ?? 4 / 13) * 100).toStringAsFixed(1)}% on 13 separate test videos. '
         'Grey means pending, uncertain or unavailable. These colours are not verified road ratings.\n\n'
+        'Use Wrong rating to save a correction for the current section. The map updates immediately; the model learns from corrections after later training, not during this recording.\n\n'
         'Estimates run on your phone. OpenStreetMap tiles need an internet connection for new areas. '
         'Keep the app open while recording; leaving the app stops and saves the session.',
       ),
@@ -377,13 +471,18 @@ class _LiveMapPageState extends State<LiveMapPage>
     super.build(context);
     final elapsed = _collection?.clock.elapsedMilliseconds ?? 0;
     final fresh = _estimate != null && elapsed - _estimate!.endMs <= 8000;
+    final corrected = fresh && _correctedWindowEndMs == _estimate?.endMs
+        ? _shownCorrection
+        : null;
     final label = !_recording
         ? (_lastSessionPath == null ? 'Ready to map' : 'Route saved')
         : fresh
-        ? _estimate!.label
+        ? corrected == null
+              ? _estimate!.label
+              : '${corrected.label} (corrected)'
         : 'Waiting for road estimate';
     final colour = _recording && fresh
-        ? (_estimate!.rating?.color ?? pendingRouteColor)
+        ? (corrected?.color ?? _estimate!.rating?.color ?? pendingRouteColor)
         : pendingRouteColor;
     final gpsStatus =
         _gpsMessage ??
@@ -508,6 +607,20 @@ class _LiveMapPageState extends State<LiveMapPage>
                 ),
                 const SizedBox(height: 8),
                 const RoadMapLegend(),
+                if (_recording) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          fresh && _estimate?.rating != null && !_stopping
+                          ? _correctCurrentRating
+                          : null,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Wrong rating? Correct this section'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 if (!_recording)
                   DropdownButtonFormField<String>(

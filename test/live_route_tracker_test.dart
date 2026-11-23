@@ -191,4 +191,24 @@ void main() {
     expect(route.distanceMeters, 0);
     expect(route.points, hasLength(3));
   });
+
+  test(
+    'manual correction changes saved route but preserves raw prediction',
+    () {
+      point(0);
+      point(1000);
+      point(2000);
+      final original = estimate(0, 1500, rating: RoadRating.bad);
+      route.apply(original);
+      expect(route.correct(original, RoadRating.veryGood), 1);
+      expect(route.edges.first.rating, RoadRating.veryGood);
+      expect(route.edges.first.estimate!.rawRating, RoadRating.bad);
+      final json =
+          jsonDecode(jsonEncode(route.toGeoJson())) as Map<String, dynamic>;
+      final restored = LiveRouteTracker.fromGeoJson(json);
+      expect(restored.first.rating, RoadRating.veryGood);
+      expect(restored.first.estimate!.rawRating, RoadRating.bad);
+      expect(restored.last.rating, isNull);
+    },
+  );
 }

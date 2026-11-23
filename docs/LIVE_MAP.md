@@ -56,6 +56,31 @@ and `metadata.json`:
   times, processing duration and model ID.
 - `vision_route.geojson`: GPS route edges, quality estimates, status and timing.
   It is saved periodically and at the end of recording.
+- `vision_feedback.jsonl`: user corrections of the current estimate. Each row
+  saves the corrected class, original model scores, video/IMU window times,
+  camera view and latest GPS fix. A second correction for the same window
+  supersedes the first when training data is prepared. The saved map shows
+  corrected colours for edges already associated with that estimate.
+
+During a live recording, tap **Wrong rating? Correct this section** while an
+estimate is fresh, then choose the actual quality. This immediately changes
+the displayed estimate and affected mapped edges. It does not retrain the
+phone model during the trip; the next estimate still comes from the current
+model. This is supervised feedback, not reinforcement learning. Keeping the
+original prediction and manual correction separate lets later model training
+audit mistakes and avoid treating uncertain or mixed sections as ground truth.
+
+After exporting sessions, join corrected windows to synchronized IMU and GPS
+features with:
+
+```sh
+python3 scripts/build_feedback_dataset.py /path/to/sessions feedback_windows.csv
+```
+
+The CSV includes video clip times for later road-damage detection features,
+accelerometer and gyroscope summaries, speed, camera position, and the manual
+label. It is a training input; the current app model remains camera-only until
+a fused candidate passes held-out-route evaluation.
 
 Session details offer **View saved live road map**. Session ZIP export includes
 these files automatically. Manual session ratings remain separate: model
